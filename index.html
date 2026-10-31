@@ -1,0 +1,1837 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TRON Vault - Ultra Modern Web3 Wallet</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#eef2ff',
+                            500: '#ef4444',
+                            600: '#dc2626',
+                            700: '#b91c1c',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Telegram Web App SDK -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <!-- FontAwesome & Google Fonts -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Plus Jakarta Sans', sans-serif; }
+        .glass { background: rgba(255, 255, 255, 0.03); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.08); }
+        .dark .glass-dark { background: rgba(15, 23, 42, 0.75); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.05); }
+        .light .glass-light { background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(20px); border: 1px solid rgba(0, 0, 0, 0.08); }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(156, 163, 175, 0.3); border-radius: 9999px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(156, 163, 175, 0.5); }
+        @keyframes pulse-slow { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+        @keyframes float-badge { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
+        @keyframes glow-pulse { 0%, 100% { box-shadow: 0 0 15px rgba(239, 68, 68, 0.4); } 50% { box-shadow: 0 0 30px rgba(239, 68, 68, 0.8); } }
+        .animate-pulse-slow { animation: pulse-slow 3s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+        .animate-float { animation: float-badge 3s ease-in-out infinite; }
+        .animate-glow { animation: glow-pulse 2s infinite; }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex items-center justify-center transition-colors duration-300">
+
+    <!-- CONTENEDOR GENERAL DE LA APLICACIÓN -->
+    <div id="app" class="w-full max-w-md min-h-screen sm:min-h-[850px] sm:max-h-[92vh] sm:rounded-3xl sm:shadow-2xl overflow-hidden flex flex-col relative bg-slate-900 border border-slate-800 transition-all duration-300">
+
+        <!-- ================= 1. VISTA DE AUTENTICACIÓN / REGISTRO ================= -->
+        <section id="view-auth" class="flex-1 flex flex-col justify-between p-6 sm:p-8 relative overflow-y-auto">
+            <div class="absolute -top-24 -right-24 w-72 h-72 bg-red-600/20 rounded-full blur-3xl pointer-events-none"></div>
+            <div class="absolute -bottom-24 -left-24 w-72 h-72 bg-blue-600/10 rounded-full blur-3xl pointer-events-none"></div>
+
+            <div class="z-10 mt-6 text-center">
+                <div class="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-tr from-red-600 to-amber-500 flex items-center justify-center shadow-lg shadow-red-500/30 text-white text-2xl font-black animate-float">
+                    <i class="fa-solid fa-cube"></i>
+                </div>
+                <h1 class="text-2xl font-bold tracking-tight">TRON Vault</h1>
+                <p class="text-slate-400 text-sm mt-1">Billetera Descentralizada Red TRON</p>
+            </div>
+
+            <!-- Formulario Dinámico de Acceso / Registro -->
+            <div class="z-10 my-auto py-6 space-y-4">
+                <div id="auth-mode-indicator" class="text-xs font-semibold uppercase tracking-wider text-center text-red-500 mb-2">
+                    Detectando Telegram ID...
+                </div>
+
+                <div class="space-y-1">
+                    <label class="text-xs font-medium text-slate-400">ID de Telegram (Fijo)</label>
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
+                            <i class="fa-brands fa-telegram text-blue-400"></i>
+                        </span>
+                        <input type="text" id="auth-telegram-id" readonly 
+                            class="w-full pl-10 pr-10 py-3 rounded-xl bg-slate-800/90 border border-slate-700 text-slate-300 font-mono text-sm focus:outline-none cursor-not-allowed select-none">
+                        <span class="absolute inset-y-0 right-0 pr-3.5 flex items-center pointer-events-none text-emerald-400 text-xs">
+                            <i class="fa-solid fa-circle-check"></i>
+                        </span>
+                    </div>
+                    <p id="telegram-id-feedback" class="text-xs text-slate-400 mt-1"></p>
+                </div>
+
+                <!-- CONTENEDOR LOGIN (PIN único) -->
+                <div id="login-fields" class="space-y-3">
+                    <div class="space-y-1">
+                        <label class="text-xs font-medium text-slate-400">PIN de Acceso (6 Dígitos)</label>
+                        <div class="relative">
+                            <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
+                                <i class="fa-solid fa-lock"></i>
+                            </span>
+                            <input type="password" id="auth-pin" maxlength="6" placeholder="******" 
+                                class="w-full pl-10 pr-10 py-3 rounded-xl bg-slate-800/80 border border-slate-700/80 focus:border-red-500 focus:outline-none text-sm tracking-widest transition-all">
+                            <button onclick="togglePinVisibility('auth-pin', 'eye-auth')" class="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-500 hover:text-slate-300">
+                                <i id="eye-auth" class="fa-solid fa-eye text-xs"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <button onclick="handleAuthSubmit()" class="w-full py-3.5 rounded-xl bg-gradient-to-r from-red-600 to-red-500 hover:from-red-500 hover:to-red-400 text-white font-semibold shadow-lg shadow-red-600/25 transition-all transform active:scale-95 text-sm mt-2 animate-glow">
+                        Acceder a la Billetera
+                    </button>
+                </div>
+
+                <!-- CONTENEDOR REGISTRO (PIN y Repetir PIN) -->
+                <div id="register-fields" class="space-y-3 hidden">
+                    <div class="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-300 mb-2">
+                        <i class="fa-solid fa-circle-info mr-1"></i> Este ID de Telegram no está registrado. Crea tu PIN único de 6 dígitos.
+                    </div>
+                    <div class="space-y-1">
+                        <label class="text-xs font-medium text-slate-400">Nuevo PIN (6 Dígitos)</label>
+                        <div class="relative">
+                            <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
+                                <i class="fa-solid fa-lock"></i>
+                            </span>
+                            <input type="password" id="reg-pin" maxlength="6" placeholder="******" 
+                                class="w-full pl-10 pr-10 py-3 rounded-xl bg-slate-800/80 border border-slate-700/80 focus:border-red-500 focus:outline-none text-sm tracking-widest transition-all">
+                            <button onclick="togglePinVisibility('reg-pin', 'eye-reg1')" class="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-500 hover:text-slate-300">
+                                <i id="eye-reg1" class="fa-solid fa-eye text-xs"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="space-y-1">
+                        <label class="text-xs font-medium text-slate-400">Repetir PIN</label>
+                        <div class="relative">
+                            <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
+                                <i class="fa-solid fa-lock"></i>
+                            </span>
+                            <input type="password" id="reg-pin-repeat" maxlength="6" placeholder="******" 
+                                class="w-full pl-10 pr-10 py-3 rounded-xl bg-slate-800/80 border border-slate-700/80 focus:border-red-500 focus:outline-none text-sm tracking-widest transition-all">
+                            <button onclick="togglePinVisibility('reg-pin-repeat', 'eye-reg2')" class="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-500 hover:text-slate-300">
+                                <i id="eye-reg2" class="fa-solid fa-eye text-xs"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <button onclick="handleRegisterSubmit()" class="w-full py-3.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-semibold shadow-lg shadow-emerald-600/25 transition-all transform active:scale-95 text-sm mt-2">
+                        Completar Registro
+                    </button>
+                </div>
+
+                <div id="multi-account-option" class="space-y-1 hidden pt-1">
+                    <label class="flex items-center space-x-2 cursor-pointer">
+                        <input type="checkbox" id="create-new-subaccount" class="accent-red-500 w-4 h-4 rounded">
+                        <span class="text-xs text-slate-300">Crear una nueva subcuenta / billetera adicional con este ID</span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="z-10 text-center text-xs text-slate-500 pb-2">
+                Red TRON (TRC-20) • Telegram Mini App Auth
+            </div>
+        </section>
+
+
+        <!-- ================= 2. VISTA PRINCIPAL DE LA BILLETERA ================= -->
+        <section id="view-wallet" class="flex-1 flex flex-col justify-between hidden overflow-hidden">
+            <div class="px-6 pt-5 pb-3 flex items-center justify-between border-b border-slate-800/60">
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 rounded-full bg-gradient-to-tr from-red-600 to-amber-500 flex items-center justify-center text-white font-bold text-sm shadow-md" id="user-avatar">
+                        T
+                    </div>
+                    <div>
+                        <div class="flex items-center space-x-1.5">
+                            <h2 class="font-bold text-sm" id="display-telegram-id">Telegram ID</h2>
+                            <span id="badge-admin" class="hidden bg-red-500/10 text-red-400 border border-red-500/20 text-[10px] px-1.5 py-0.5 rounded-full font-bold">ADMIN</span>
+                        </div>
+                        <p class="text-[11px] text-slate-400 font-mono flex items-center space-x-1 cursor-pointer hover:text-slate-200" onclick="copyWalletAddress()">
+                            <span id="short-address">TGC7Ym...Z1JUs</span> <i class="fa-regular fa-copy text-[10px]"></i>
+                        </p>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <!-- PANEL DE NOTIFICACIONES EXCLUSIVO ADMIN -->
+                    <button onclick="openAdminNotificationsModal()" id="btn-admin-notifications" class="hidden relative w-9 h-9 rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center justify-center hover:bg-amber-500/30 transition-colors" title="Notificaciones de Admin P2P">
+                        <i class="fa-solid fa-bell text-xs"></i>
+                        <span id="admin-notif-badge" class="absolute -top-1 -right-1 w-4 h-4 bg-red-600 text-white rounded-full text-[9px] flex items-center justify-center font-bold hidden">0</span>
+                    </button>
+                    <button onclick="switchTab('settings')" class="w-9 h-9 rounded-xl bg-slate-800 border border-slate-700/60 flex items-center justify-center text-slate-300 hover:text-white transition-colors">
+                        <i class="fa-solid fa-gear text-xs"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Contenido de Pestañas -->
+            <div class="flex-1 overflow-y-auto p-6 space-y-6">
+
+                <!-- TAB: WALLET -->
+                <div id="tab-wallet" class="space-y-6 tab-content">
+                    <div class="relative rounded-2xl bg-gradient-to-br from-slate-900 via-slate-850 to-slate-900 border border-slate-800 p-6 shadow-xl overflow-hidden">
+                        <div class="absolute -right-10 -bottom-10 w-40 h-40 bg-red-600/10 rounded-full blur-2xl"></div>
+                        <div class="flex items-center justify-between">
+                            <p class="text-xs text-slate-400 font-medium">Balance Total Estimado</p>
+                            <span id="account-badge" class="text-[10px] bg-slate-800 text-slate-300 px-2 py-0.5 rounded-full border border-slate-700">Cuenta 1</span>
+                        </div>
+                        <h2 class="text-3xl font-extrabold tracking-tight mt-1" id="total-balance-usd">$0.00</h2>
+                        
+                        <!-- BOTÓN P2P EN CADA WALLET -->
+                        <div class="mt-4 pt-3 border-t border-slate-800 flex items-center justify-between">
+                            <div class="flex items-center space-x-2">
+                                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+                                <span class="text-xs text-slate-300 font-medium">P2P Escrow Seguro</span>
+                            </div>
+                            <button onclick="openP2PModule()" class="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-bold shadow-lg shadow-emerald-600/20 transition-all flex items-center space-x-1.5">
+                                <i class="fa-solid fa-handshake"></i>
+                                <span>P2P</span>
+                            </button>
+                        </div>
+
+                        <!-- BOTONES DE ACCESO RÁPIDO (CON ENVÍO DIRECTO) -->
+                        <div class="grid grid-cols-4 gap-3 mt-6 pt-5 border-t border-slate-800/80">
+                            <button onclick="openModal('qr')" class="flex flex-col items-center space-y-1.5 group">
+                                <div class="w-11 h-11 rounded-xl bg-red-600/15 text-red-500 group-hover:bg-red-600 group-hover:text-white flex items-center justify-center transition-all shadow-sm">
+                                    <i class="fa-solid fa-arrow-down text-sm"></i>
+                                </div>
+                                <span class="text-[11px] font-medium text-slate-300">Depositar</span>
+                            </button>
+                            <button onclick="openModal('withdraw')" class="flex flex-col items-center space-y-1.5 group">
+                                <div class="w-11 h-11 rounded-xl bg-slate-800 text-slate-300 group-hover:bg-red-600 group-hover:text-white flex items-center justify-center transition-all shadow-sm">
+                                    <i class="fa-solid fa-arrow-up text-sm"></i>
+                                </div>
+                                <span class="text-[11px] font-medium text-slate-300">Retirar</span>
+                            </button>
+                            <button onclick="switchTab('swap')" class="flex flex-col items-center space-y-1.5 group">
+                                <div class="w-11 h-11 rounded-xl bg-slate-800 text-slate-300 group-hover:bg-red-600 group-hover:text-white flex items-center justify-center transition-all shadow-sm">
+                                    <i class="fa-solid fa-right-left text-sm"></i>
+                                </div>
+                                <span class="text-[11px] font-medium text-slate-300">Swap</span>
+                            </button>
+                            <button onclick="switchTab('staking')" class="flex flex-col items-center space-y-1.5 group">
+                                <div class="w-11 h-11 rounded-xl bg-slate-800 text-slate-300 group-hover:bg-red-600 group-hover:text-white flex items-center justify-center transition-all shadow-sm">
+                                    <i class="fa-solid fa-coins text-sm"></i>
+                                </div>
+                                <span class="text-[11px] font-medium text-slate-300">Staking</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div>
+                        <div class="flex items-center justify-between mb-3">
+                            <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400">Activos en Red TRON</h3>
+                            <button onclick="refreshPrices()" class="text-xs text-red-400 hover:text-red-300 flex items-center space-x-1">
+                                <i id="refresh-icon" class="fa-solid fa-rotate"></i> <span>Actualizar</span>
+                            </button>
+                        </div>
+                        <div class="space-y-2.5" id="token-list"></div>
+                    </div>
+
+                    <div>
+                        <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">Últimas Operaciones</h3>
+                        <div class="space-y-2" id="transactions-list"></div>
+                    </div>
+                </div>
+
+                <!-- TAB: SWAP -->
+                <div id="tab-swap" class="space-y-4 tab-content hidden">
+                    <div class="rounded-2xl bg-slate-900 border border-slate-800 p-5 space-y-4 shadow-xl">
+                        <div class="flex items-center justify-between">
+                            <h3 class="font-bold text-sm">TRON Instant Swap</h3>
+                            <span class="text-xs text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded">0.1% Fee</span>
+                        </div>
+                        <div class="p-3.5 rounded-xl bg-slate-800/60 border border-slate-700/60 space-y-2">
+                            <div class="flex justify-between text-xs text-slate-400">
+                                <span>Pagas</span>
+                                <span id="swap-bal-from">Saldo: 0.00</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <input type="number" id="swap-amount-from" placeholder="0.00" class="bg-transparent text-xl font-bold focus:outline-none w-1/2" oninput="calculateSwap()">
+                                <select id="swap-token-from" class="bg-slate-700 text-xs font-semibold py-2 px-3 rounded-lg focus:outline-none" onchange="calculateSwap()">
+                                    <option value="TRX">TRX</option>
+                                    <option value="USDT">USDT</option>
+                                    <option value="USDD">USDD</option>
+                                    <option value="JST">JST</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="flex justify-center -my-2 relative z-10">
+                            <button onclick="invertSwapTokens()" class="w-9 h-9 rounded-full bg-red-600 text-white flex items-center justify-center shadow-md hover:bg-red-500 transition-transform active:rotate-180">
+                                <i class="fa-solid fa-arrow-down-up text-xs"></i>
+                            </button>
+                        </div>
+
+                        <div class="p-3.5 rounded-xl bg-slate-800/60 border border-slate-700/60 space-y-2">
+                            <div class="flex justify-between text-xs text-slate-400">
+                                <span>Recibes (Estimado)</span>
+                                <span id="swap-bal-to">Saldo: 0.00</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <input type="text" id="swap-amount-to" readonly placeholder="0.00" class="bg-transparent text-xl font-bold text-emerald-400 focus:outline-none w-1/2">
+                                <select id="swap-token-to" class="bg-slate-700 text-xs font-semibold py-2 px-3 rounded-lg focus:outline-none" onchange="calculateSwap()">
+                                    <option value="USDT">USDT</option>
+                                    <option value="TRX">TRX</option>
+                                    <option value="USDD">USDD</option>
+                                    <option value="JST">JST</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div id="swap-fee-notice" class="text-[11px] text-amber-400 font-medium px-1 hidden"></div>
+
+                        <button onclick="executeSwap()" class="w-full py-3.5 rounded-xl bg-gradient-to-r from-red-600 to-red-500 hover:from-red-500 hover:to-red-400 font-semibold text-white text-sm shadow-lg shadow-red-600/20 transition-all">
+                            Realizar Swap Instantáneo
+                        </button>
+                    </div>
+                </div>
+
+                <!-- TAB: STAKING -->
+                <div id="tab-staking" class="space-y-4 tab-content hidden">
+                    <div class="rounded-2xl bg-gradient-to-br from-red-950/40 via-slate-900 to-slate-900 border border-red-900/30 p-5 space-y-4 shadow-xl">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <h3 class="font-bold text-sm">TRON Smart Staking</h3>
+                                <p class="text-xs text-slate-400">Rendimiento anual garantizado</p>
+                            </div>
+                            <span class="bg-red-500/20 text-red-400 border border-red-500/30 font-extrabold text-xs px-2.5 py-1 rounded-full">5.7% APY</span>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-3 pt-2">
+                            <div class="p-3 rounded-xl bg-slate-800/60 border border-slate-700/60">
+                                <p class="text-[11px] text-slate-400">En Staking</p>
+                                <p class="text-base font-bold mt-0.5" id="staking-active-amount">0.00 TRX</p>
+                            </div>
+                            <div class="p-3 rounded-xl bg-slate-800/60 border border-slate-700/60">
+                                <p class="text-[11px] text-slate-400">Recompensas Ganadas</p>
+                                <p class="text-base font-bold text-emerald-400 mt-0.5" id="staking-rewards">0.00 TRX</p>
+                            </div>
+                        </div>
+
+                        <div class="space-y-2 pt-2">
+                            <label class="text-xs font-medium text-slate-400">Monto a Bloquear en TRX</label>
+                            <input type="number" id="staking-input-amount" placeholder="Mínimo 10 TRX" class="w-full p-3 rounded-xl bg-slate-800/80 border border-slate-700 text-sm focus:border-red-500 focus:outline-none">
+                            <button onclick="executeStaking()" class="w-full py-3 rounded-xl bg-red-600 hover:bg-red-500 font-semibold text-white text-sm shadow-lg shadow-red-600/20 transition-all">
+                                Depositar en Staking (5.7%)
+                            </button>
+                            <button onclick="claimStakingRewards()" class="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 font-medium text-slate-200 text-xs transition-all">
+                                Reclamar Recompensas
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB: REFERIDOS -->
+                <div id="tab-referrals" class="space-y-4 tab-content hidden">
+                    <div class="rounded-2xl bg-slate-900 border border-slate-800 p-5 space-y-4 shadow-xl">
+                        <div>
+                            <h3 class="font-bold text-sm">Sistema de Referidos TRON</h3>
+                            <p class="text-xs text-slate-400 mt-0.5">Gana un <span class="text-emerald-400 font-bold">2% de ganancias</span> por cada depósito que realicen tus referidos.</p>
+                        </div>
+
+                        <div class="p-3.5 rounded-xl bg-slate-800/80 border border-slate-700/60 space-y-2">
+                            <label class="text-[11px] text-slate-400 font-medium">Tu Enlace de Invitación</label>
+                            <div class="flex items-center space-x-2">
+                                <input type="text" id="referral-link" readonly value="https://tronvault.io/ref/user" class="w-full bg-slate-900 px-3 py-2 rounded-lg text-xs font-mono text-slate-300 border border-slate-700 focus:outline-none">
+                                <button onclick="copyReferralLink()" class="px-3 py-2 bg-red-600 hover:bg-red-500 text-white rounded-lg text-xs font-semibold">
+                                    <i class="fa-regular fa-copy"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-3">
+                            <div class="p-3 rounded-xl bg-slate-800/60 border border-slate-700/60 text-center">
+                                <p class="text-[11px] text-slate-400">Total Referidos</p>
+                                <p class="text-lg font-bold mt-1" id="ref-count">0</p>
+                            </div>
+                            <div class="p-3 rounded-xl bg-slate-800/60 border border-slate-700/60 text-center">
+                                <p class="text-[11px] text-slate-400">Comisiones Ganadas</p>
+                                <p class="text-lg font-bold text-emerald-400 mt-1" id="ref-earnings">0.00 USDT</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB: AJUSTES -->
+                <div id="tab-settings" class="space-y-4 tab-content hidden">
+                    <div class="space-y-3">
+                        <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400">Configuración de Cuenta & Multi-cuentas</h3>
+                        
+                        <div class="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-3">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center space-x-3">
+                                    <div class="w-9 h-9 rounded-lg bg-slate-800 flex items-center justify-center text-slate-300">
+                                        <i class="fa-solid fa-wallet text-xs"></i>
+                                    </div>
+                                    <div>
+                                        <p class="text-sm font-semibold">Gestión de Cuentas (Multi-cuentas)</p>
+                                        <p class="text-[11px] text-slate-400">Cambiar de cuenta o crear otra</p>
+                                    </div>
+                                </div>
+                                <button onclick="createNewAccount()" class="px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-500 text-white text-xs font-semibold">
+                                    + Nueva Cuenta
+                                </button>
+                            </div>
+                            <div id="accounts-list-container" class="space-y-2 pt-2 border-t border-slate-800"></div>
+                        </div>
+
+                        <div class="p-4 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-between">
+                            <div class="flex items-center space-x-3">
+                                <div class="w-9 h-9 rounded-lg bg-slate-800 flex items-center justify-center text-slate-300">
+                                    <i class="fa-solid fa-moon text-xs"></i>
+                                </div>
+                                <div>
+                                    <p class="text-sm font-semibold">Modo Oscuro / Claro</p>
+                                    <p class="text-[11px] text-slate-400">Cambiar apariencia visual</p>
+                                </div>
+                            </div>
+                            <button onclick="toggleTheme()" id="theme-toggle-btn" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-semibold">
+                                Cambiar
+                            </button>
+                        </div>
+
+                        <div class="p-4 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-between">
+                            <div class="flex items-center space-x-3">
+                                <div class="w-9 h-9 rounded-lg bg-slate-800 flex items-center justify-center text-slate-300">
+                                    <i class="fa-solid fa-headset text-xs"></i>
+                                </div>
+                                <div>
+                                    <p class="text-sm font-semibold">Soporte Técnico</p>
+                                    <p class="text-[11px] text-slate-400">suportnexuspaywallet@gmail.com</p>
+                                </div>
+                            </div>
+                            <a href="mailto:suportnexuspaywallet@gmail.com" class="px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-500 text-white text-xs font-semibold transition-colors">
+                                Contactar
+                            </a>
+                        </div>
+
+                        <button onclick="logout()" class="w-full py-3 rounded-xl bg-red-600/10 hover:bg-red-600/20 border border-red-500/30 text-red-400 font-semibold text-xs transition-all flex items-center justify-center space-x-2">
+                            <i class="fa-solid fa-right-from-bracket"></i>
+                            <span>Cerrar Sesión</span>
+                        </button>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Navegación Inferior -->
+            <div class="px-6 py-3 border-t border-slate-800/60 bg-slate-900/90 flex items-center justify-around">
+                <button onclick="switchTab('wallet')" id="nav-wallet" class="flex flex-col items-center space-y-1 text-red-500 transition-colors">
+                    <i class="fa-solid fa-wallet text-sm"></i>
+                    <span class="text-[10px] font-semibold">Wallet</span>
+                </button>
+                <button onclick="switchTab('swap')" id="nav-swap" class="flex flex-col items-center space-y-1 text-slate-400 hover:text-slate-200 transition-colors">
+                    <i class="fa-solid fa-right-left text-sm"></i>
+                    <span class="text-[10px] font-semibold">Swap</span>
+                </button>
+                <button onclick="switchTab('staking')" id="nav-staking" class="flex flex-col items-center space-y-1 text-slate-400 hover:text-slate-200 transition-colors">
+                    <i class="fa-solid fa-coins text-sm"></i>
+                    <span class="text-[10px] font-semibold">Staking</span>
+                </button>
+                <button onclick="switchTab('referrals')" id="nav-referrals" class="flex flex-col items-center space-y-1 text-slate-400 hover:text-slate-200 transition-colors">
+                    <i class="fa-solid fa-users text-sm"></i>
+                    <span class="text-[10px] font-semibold">Referidos</span>
+                </button>
+                <button onclick="switchTab('settings')" id="nav-settings" class="flex flex-col items-center space-y-1 text-slate-400 hover:text-slate-200 transition-colors">
+                    <i class="fa-solid fa-gear text-sm"></i>
+                    <span class="text-[10px] font-semibold">Ajustes</span>
+                </button>
+            </div>
+        </section>
+
+
+        <!-- ================= MODAL: MERCADO P2P ================= -->
+        <div id="modal-p2p" class="fixed inset-0 z-50 bg-black/90 backdrop-blur-md hidden flex items-center justify-center p-4">
+            <div class="bg-slate-900 border border-slate-800 w-full max-w-md rounded-2xl p-5 space-y-4 shadow-2xl relative max-h-[92vh] overflow-y-auto">
+                <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                    <div class="flex items-center space-x-2">
+                        <i class="fa-solid fa-handshake text-emerald-400"></i>
+                        <h3 class="font-extrabold text-sm text-white">Mercado P2P Transparente y Seguro</h3>
+                    </div>
+                    <button onclick="closeModal('p2p')" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+
+                <div class="bg-emerald-500/10 border border-emerald-500/20 p-3 rounded-xl text-xs text-emerald-300 flex items-start space-x-2">
+                    <i class="fa-solid fa-shield-halved mt-0.5 text-emerald-400"></i>
+                    <p>Cada transacción se realiza de forma totalmente transparente y segura. El sistema retendrá los fondos del vendedor en Escrow hasta que se confirme el pago.</p>
+                </div>
+
+                <div class="flex space-x-2">
+                    <button onclick="setP2PMode('buy')" id="btn-p2p-buy-tab" class="flex-1 py-2 rounded-xl bg-emerald-600 text-white font-bold text-xs shadow-md transition-all">
+                        Comprar
+                    </button>
+                    <button onclick="setP2PMode('sell')" id="btn-p2p-sell-tab" class="flex-1 py-2 rounded-xl bg-slate-800 text-slate-400 font-bold text-xs transition-all">
+                        Vender
+                    </button>
+                </div>
+
+                <!-- SECCIÓN: COMPRAR -->
+                <div id="p2p-section-buy" class="space-y-3">
+                    <div class="space-y-1">
+                        <label class="text-xs text-slate-400">Token que quieres comprar</label>
+                        <select id="p2p-buy-token" class="w-full p-2.5 rounded-xl bg-slate-800 border border-slate-700 text-xs font-semibold focus:outline-none">
+                            <option value="USDT">USDT</option>
+                            <option value="TRX">TRX</option>
+                        </select>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div class="space-y-1">
+                            <label class="text-xs text-slate-400">Cantidad</label>
+                            <input type="number" id="p2p-buy-amount" placeholder="Ej. 100" class="w-full p-2.5 rounded-xl bg-slate-800 border border-slate-700 text-xs focus:outline-none" oninput="calcP2PBuy()">
+                        </div>
+                        <div class="space-y-1">
+                            <label class="text-xs text-slate-400">Precio unitario en CUP</label>
+                            <input type="number" id="p2p-buy-price" placeholder="Ej. 10" class="w-full p-2.5 rounded-xl bg-slate-800 border border-slate-700 text-xs focus:outline-none" oninput="calcP2PBuy()">
+                        </div>
+                    </div>
+                    <div class="p-3 rounded-xl bg-slate-800/80 border border-slate-700 text-xs flex items-center justify-between">
+                        <span class="text-slate-400">Total a pagar en CUP:</span>
+                        <span id="p2p-buy-total-cup" class="font-bold text-emerald-400 text-sm">0 CUP</span>
+                    </div>
+                    <div class="space-y-1">
+                        <label class="text-xs text-slate-400">Usuario de Telegram con el que interactuarás (ej. @frank123)</label>
+                        <input type="text" id="p2p-buy-target-user" placeholder="@frank123" class="w-full p-2.5 rounded-xl bg-slate-800 border border-slate-700 text-xs font-mono focus:outline-none">
+                    </div>
+                    <button onclick="executeP2PBuyOffer()" class="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-lg transition-all">
+                        Realizar Oferta de Compra
+                    </button>
+                </div>
+
+                <!-- SECCIÓN: VENDER -->
+                <div id="p2p-section-sell" class="space-y-3 hidden">
+                    <div class="space-y-1">
+                        <label class="text-xs text-slate-400">Token que quieres vender</label>
+                        <select id="p2p-sell-token" class="w-full p-2.5 rounded-xl bg-slate-800 border border-slate-700 text-xs font-semibold focus:outline-none">
+                            <option value="USDT">USDT</option>
+                            <option value="TRX">TRX</option>
+                        </select>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div class="space-y-1">
+                            <label class="text-xs text-slate-400">Cantidad (Rango válido)</label>
+                            <input type="number" id="p2p-sell-amount" placeholder="Ej. 50" class="w-full p-2.5 rounded-xl bg-slate-800 border border-slate-700 text-xs focus:outline-none" oninput="calcP2PSell()">
+                        </div>
+                        <div class="space-y-1">
+                            <label class="text-xs text-slate-400">Precio en CUP</label>
+                            <input type="number" id="p2p-sell-price" placeholder="Ej. 10" class="w-full p-2.5 rounded-xl bg-slate-800 border border-slate-700 text-xs focus:outline-none" oninput="calcP2PSell()">
+                        </div>
+                    </div>
+                    <div class="p-3 rounded-xl bg-slate-800/80 border border-slate-700 text-xs flex items-center justify-between">
+                        <span class="text-slate-400">El comprador pagará:</span>
+                        <span id="p2p-sell-total-cup" class="font-bold text-red-400 text-sm">0 CUP</span>
+                    </div>
+                    <div class="space-y-1">
+                        <label class="text-xs text-slate-400">Usuario específico de Telegram del comprador (@...)</label>
+                        <input type="text" id="p2p-sell-target-user" placeholder="@comprador123" class="w-full p-2.5 rounded-xl bg-slate-800 border border-slate-700 text-xs font-mono focus:outline-none">
+                    </div>
+                    <button onclick="executeP2PSellOffer()" class="w-full py-3 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold text-xs shadow-lg transition-all">
+                        Realizar Oferta de Venta
+                    </button>
+                </div>
+
+                <!-- PANEL ACTIVO DE TRANSACCIÓN P2P EN CURSO -->
+                <div id="p2p-active-transaction-box" class="mt-4 pt-4 border-t border-slate-800 space-y-3 hidden">
+                    <h4 class="text-xs font-bold uppercase tracking-wider text-amber-400 flex items-center justify-between">
+                        <span>Oferta P2P Activa</span>
+                        <span id="p2p-countdown-timer" class="font-mono bg-amber-500/10 text-amber-400 px-2 py-0.5 rounded">01:00:00</span>
+                    </h4>
+                    <div id="p2p-transaction-details" class="p-3 rounded-xl bg-slate-800/80 border border-slate-700 text-xs space-y-1 text-slate-300"></div>
+
+                    <!-- Chat de mensajería P2P con animaciones -->
+                    <div class="p-3 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
+                        <div class="flex items-center justify-between text-[11px] text-slate-400">
+                            <span>Chat P2P con <strong id="p2p-chat-peer" class="text-white"></strong></span>
+                            <button onclick="openSupportTicket()" class="text-red-400 hover:text-red-300 underline font-semibold">Abrir Ticket Soporte</button>
+                        </div>
+                        <div id="p2p-chat-messages" class="h-28 overflow-y-auto space-y-1.5 p-2 rounded-lg bg-slate-900 text-[11px] border border-slate-800 transition-all"></div>
+                        <div class="flex space-x-1">
+                            <input type="text" id="p2p-chat-input" placeholder="Escribe un mensaje..." class="w-full p-2 rounded-lg bg-slate-900 border border-slate-700 text-xs focus:outline-none">
+                            <button onclick="sendP2PChatMessage()" class="px-3 bg-red-600 hover:bg-red-500 text-white rounded-lg text-xs"><i class="fa-solid fa-paper-plane"></i></button>
+                        </div>
+                    </div>
+
+                    <div id="p2p-action-buttons" class="space-y-2"></div>
+                </div>
+
+                <div class="pt-2">
+                    <button onclick="closeModal('p2p')" class="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold">Cerrar</button>
+                </div>
+            </div>
+        </div>
+
+
+        <!-- ================= MODAL: CALIFICACIÓN ESTRELLAS P2P ================= -->
+        <div id="modal-p2p-rating" class="fixed inset-0 z-50 bg-black/90 backdrop-blur-md hidden flex items-center justify-center p-4">
+            <div class="bg-slate-900 border border-slate-800 w-full max-w-xs rounded-2xl p-5 space-y-4 shadow-2xl text-center">
+                <div class="w-12 h-12 rounded-full bg-emerald-600/20 text-emerald-400 mx-auto flex items-center justify-center text-lg">
+                    <i class="fa-solid fa-star"></i>
+                </div>
+                <div>
+                    <h3 class="font-bold text-sm">Transacción P2P Completada</h3>
+                    <p class="text-xs text-slate-400 mt-1">Califica tu experiencia con el usuario (1 a 5 estrellas)</p>
+                </div>
+                <div class="flex justify-center space-x-2 text-xl text-amber-400 cursor-pointer" id="star-rating-container">
+                    <i class="fa-solid fa-star" onclick="setRating(1)"></i>
+                    <i class="fa-solid fa-star" onclick="setRating(2)"></i>
+                    <i class="fa-solid fa-star" onclick="setRating(3)"></i>
+                    <i class="fa-solid fa-star" onclick="setRating(4)"></i>
+                    <i class="fa-solid fa-star" onclick="setRating(5)"></i>
+                </div>
+                <button onclick="submitP2PRating()" class="w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold">Enviar Calificación</button>
+            </div>
+        </div>
+
+
+        <!-- ================= MODAL: NOTIFICACIONES DE ESPERA / RED (ULTRA MODERNAS CON ANIMACIÓN) ================= -->
+        <div id="modal-network-notification" class="fixed inset-0 z-50 bg-black/90 backdrop-blur-md hidden flex items-center justify-center p-4">
+            <div class="bg-slate-900 border border-red-500/40 w-full max-w-sm rounded-2xl p-6 space-y-4 shadow-2xl relative text-center animate-pulse-slow">
+                <div class="w-16 h-16 rounded-full bg-gradient-to-tr from-red-600 to-amber-500 text-white mx-auto flex items-center justify-center text-2xl shadow-lg shadow-red-500/50 animate-bounce">
+                    <i id="net-notif-icon" class="fa-solid fa-shield-halved"></i>
+                </div>
+                <div>
+                    <h3 class="font-extrabold text-base text-white" id="net-notif-title">Notificación de Red</h3>
+                    <p class="text-xs text-slate-300 mt-2 leading-relaxed" id="net-notif-body">Procesando transmisión en la red TRON...</p>
+                </div>
+                <div id="net-notif-extra" class="space-y-2 text-left"></div>
+                <button onclick="closeModal('network-notification')" class="w-full py-3 rounded-xl bg-gradient-to-r from-red-600 to-red-500 hover:from-red-500 text-white font-bold text-xs shadow-lg transition-all">
+                    Entendido / Continuar
+                </button>
+            </div>
+        </div>
+
+
+        <!-- ================= MODAL: QR Y DEPÓSITO ================= -->
+        <div id="modal-qr" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-4">
+            <div class="bg-slate-900 border border-slate-800 w-full max-w-sm rounded-2xl p-5 space-y-4 shadow-2xl relative text-center">
+                <div class="flex items-center justify-between">
+                    <h3 class="font-bold text-sm">Depósito Red TRC-20</h3>
+                    <button onclick="closeModal('qr')" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+
+                <div class="bg-amber-500/10 border border-amber-500/20 py-2 px-3 rounded-xl flex items-center justify-between">
+                    <span class="text-xs text-amber-400 font-medium">Tiempo restante:</span>
+                    <span id="deposit-countdown" class="font-mono text-xs font-bold text-amber-400">29:59</span>
+                </div>
+
+                <div class="bg-white p-3 rounded-2xl w-36 h-36 mx-auto flex items-center justify-center shadow-md">
+                    <img id="qr-img" src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=TGC7YmHfBxJhtm5p1h5x1Xmq62kSoZ1JUs" alt="QR TRON" class="w-full h-full object-contain">
+                </div>
+
+                <div class="space-y-1">
+                    <p class="text-[11px] text-slate-400">Dirección Oficial de Depósito:</p>
+                    <div class="flex items-center space-x-2 bg-slate-800 p-2 rounded-xl border border-slate-700">
+                        <input type="text" readonly id="qr-wallet-address" value="TGC7YmHfBxJhtm5p1h5x1Xmq62kSoZ1JUs" class="w-full bg-transparent text-[11px] font-mono text-slate-300 focus:outline-none">
+                        <button onclick="copyQrAddress()" class="text-red-400 hover:text-red-300 px-2"><i class="fa-regular fa-copy"></i></button>
+                    </div>
+                </div>
+
+                <div class="space-y-1 text-left">
+                    <label class="text-xs text-slate-400">Hash de Transacción</label>
+                    <input type="text" id="tx-hash-input" placeholder="Ingresa hash..." class="w-full p-2.5 rounded-xl bg-slate-800 border border-slate-700 text-xs font-mono focus:outline-none focus:border-red-500" oninput="validateHashInput()">
+                    <p id="tronscan-status" class="text-[10px] text-slate-400 mt-1">Coloca tu hash para verificar la transferencia...</p>
+                </div>
+
+                <button id="btn-confirm-deposit" disabled onclick="completeDeposit()" class="w-full py-3 rounded-xl bg-slate-800 text-slate-500 font-semibold text-xs transition-all cursor-not-allowed">
+                    Verificar y Acreditar Saldo
+                </button>
+            </div>
+        </div>
+
+
+        <!-- ================= MODAL: RETIRAR & ENVÍO DIRECTO ================= -->
+        <div id="modal-withdraw" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-4">
+            <div class="bg-slate-900 border border-slate-800 w-full max-w-sm rounded-2xl p-5 space-y-4 shadow-2xl relative max-h-[92vh] overflow-y-auto">
+                <div class="flex items-center justify-between">
+                    <h3 class="font-bold text-sm">Retiros & Transferencias</h3>
+                    <button onclick="closeModal('withdraw')" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+
+                <!-- Pestañas internas del modal Retiros / Envío Directo -->
+                <div class="grid grid-cols-2 gap-2">
+                    <button onclick="setWithdrawMode('external')" id="btn-withdraw-ext" class="py-2 rounded-xl bg-red-600 text-white font-bold text-xs shadow-md transition-all">
+                        Retiro Externo
+                    </button>
+                    <button onclick="setWithdrawMode('direct')" id="btn-withdraw-dir" class="py-2 rounded-xl bg-slate-800 text-slate-400 font-bold text-xs transition-all">
+                        Envío Directo
+                    </button>
+                </div>
+
+                <!-- SECCIÓN: RETIRO EXTERNO -->
+                <div id="withdraw-section-external" class="space-y-3">
+                    <div class="space-y-1">
+                        <label class="text-xs text-slate-400">Criptomoneda</label>
+                        <select id="withdraw-crypto" class="w-full p-2.5 rounded-xl bg-slate-800 border border-slate-700 text-xs font-semibold focus:outline-none">
+                            <option value="USDT">USDT (Tether TRC-20)</option>
+                            <option value="TRX">TRX (Tron)</option>
+                            <option value="USDD">USDD</option>
+                            <option value="JST">JST</option>
+                        </select>
+                    </div>
+                    <div class="space-y-1">
+                        <label class="text-xs text-slate-400">Dirección de Destino TRC-20</label>
+                        <input type="text" id="withdraw-dest" placeholder="Dirección TRON destino..." class="w-full p-2.5 rounded-xl bg-slate-800 border border-slate-700 text-xs font-mono focus:outline-none focus:border-red-500">
+                    </div>
+                    <div class="space-y-1">
+                        <label class="text-xs text-slate-400">Monto a Retirar</label>
+                        <input type="number" id="withdraw-amount" placeholder="0.00" class="w-full p-2.5 rounded-xl bg-slate-800 border border-slate-700 text-xs focus:outline-none focus:border-red-500">
+                    </div>
+                    <button onclick="executeWithdraw()" class="w-full py-3 rounded-xl bg-red-600 hover:bg-red-500 text-white font-semibold text-xs shadow-md transition-all">
+                        Confirmar Retiro Externo
+                    </button>
+                </div>
+
+                <!-- SECCIÓN: ENVÍO DIRECTO (ENTRE WALLETS DEL ECOSISTEMA) -->
+                <div id="withdraw-section-direct" class="space-y-3 hidden">
+                    <div class="p-3 rounded-xl bg-blue-500/10 border border-blue-500/20 text-xs text-blue-300">
+                        <i class="fa-solid fa-circle-info mr-1"></i> Envía fondos de forma inmediata a otro usuario real registrado en este ecosistema.
+                    </div>
+                    <div class="space-y-1">
+                        <label class="text-xs text-slate-400">Usuario de Destino (ej. @usuario)</label>
+                        <input type="text" id="direct-target-user" placeholder="@usuario" class="w-full p-2.5 rounded-xl bg-slate-800 border border-slate-700 text-xs font-mono focus:outline-none focus:border-red-500">
+                    </div>
+                    <div class="space-y-1">
+                        <label class="text-xs text-slate-400">Criptomoneda</label>
+                        <select id="direct-crypto" class="w-full p-2.5 rounded-xl bg-slate-800 border border-slate-700 text-xs font-semibold focus:outline-none">
+                            <option value="USDT">USDT</option>
+                            <option value="TRX">TRX</option>
+                            <option value="USDD">USDD</option>
+                            <option value="JST">JST</option>
+                        </select>
+                    </div>
+                    <div class="space-y-1">
+                        <label class="text-xs text-slate-400">Cantidad a Enviar</label>
+                        <input type="number" id="direct-amount" placeholder="0.00" class="w-full p-2.5 rounded-xl bg-slate-800 border border-slate-700 text-xs focus:outline-none focus:border-red-500">
+                    </div>
+                    <button onclick="executeDirectTransfer()" class="w-full py-3 rounded-xl bg-gradient-to-r from-red-600 to-amber-500 hover:from-red-500 text-white font-semibold text-xs shadow-md transition-all">
+                        Realizar Envío Directo
+                    </button>
+                </div>
+            </div>
+        </div>
+
+
+        <!-- ================= MODAL: PANEL ADMIN (ESTADÍSTICAS Y USUARIOS) ================= -->
+        <div id="modal-admin-panel" class="fixed inset-0 z-50 bg-black/90 backdrop-blur-md hidden flex items-center justify-center p-4">
+            <div class="bg-slate-900 border border-red-500/30 w-full max-w-md rounded-2xl p-6 space-y-5 shadow-2xl relative max-h-[90vh] overflow-y-auto">
+                <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                    <div class="flex items-center space-x-2">
+                        <i class="fa-solid fa-shield-halved text-red-500"></i>
+                        <h3 class="font-extrabold text-base text-white">Panel de Administración</h3>
+                    </div>
+                    <button onclick="closeModal('admin-panel')" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+
+                <div class="space-y-2">
+                    <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400">Usuarios Registrados en el Ecosistema</h4>
+                    <div id="admin-users-list" class="space-y-2 max-h-60 overflow-y-auto"></div>
+                </div>
+
+                <button onclick="closeModal('admin-panel')" class="w-full py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold">
+                    Cerrar Panel
+                </button>
+            </div>
+        </div>
+
+
+        <!-- ================= MODAL: NOTIFICACIONES EXCLUSIVAS DEL ADMIN ================= -->
+        <div id="modal-admin-notifications-panel" class="fixed inset-0 z-50 bg-black/90 backdrop-blur-md hidden flex items-center justify-center p-4">
+            <div class="bg-slate-900 border border-amber-500/40 w-full max-w-md rounded-2xl p-6 space-y-4 shadow-2xl relative max-h-[90vh] overflow-y-auto">
+                <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                    <div class="flex items-center space-x-2">
+                        <i class="fa-solid fa-bell text-amber-400"></i>
+                        <h3 class="font-extrabold text-sm text-white">Notificaciones P2P (Administrador)</h3>
+                    </div>
+                    <button onclick="closeModal('admin-notifications-panel')" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                <div class="p-2 bg-amber-500/10 border border-amber-500/20 text-[11px] text-amber-300 rounded-xl">
+                    Panel exclusivo donde se notifican las compras P2P realizadas y los pagos confirmados por los usuarios.
+                </div>
+                <div id="admin-notifications-list-container" class="space-y-2 max-h-72 overflow-y-auto"></div>
+                <button onclick="closeModal('admin-notifications-panel')" class="w-full py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold">
+                    Cerrar Notificaciones
+                </button>
+            </div>
+        </div>
+
+
+        <!-- ================= MODAL: VERIFICACIÓN PIN ADMIN (121212) ================= -->
+        <div id="modal-pin-vip" class="fixed inset-0 z-50 bg-black/90 backdrop-blur-md hidden flex items-center justify-center p-4">
+            <div class="bg-slate-900 border border-slate-800 w-full max-w-xs rounded-2xl p-5 space-y-4 shadow-2xl text-center">
+                <div class="w-12 h-12 rounded-full bg-red-600/20 text-red-500 mx-auto flex items-center justify-center text-lg">
+                    <i class="fa-solid fa-lock"></i>
+                </div>
+                <div>
+                    <h3 class="font-bold text-sm">Seguridad Admin Requerida</h3>
+                    <p class="text-xs text-slate-400 mt-1">Ingresa el PIN de seguridad del Panel (121212)</p>
+                </div>
+                <input type="password" id="vip-pin-input" maxlength="6" placeholder="******" class="w-full p-3 rounded-xl bg-slate-800 border border-slate-700 text-center tracking-widest text-sm focus:outline-none focus:border-red-500">
+                <div class="grid grid-cols-2 gap-2">
+                    <button onclick="closeModal('pin-vip')" class="py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold">Cancelar</button>
+                    <button onclick="verifyVipPinCallback()" class="py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-semibold">Confirmar</button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- ================= LÓGICA DE JAVASCRIPT ================= -->
+    <script>
+        const ADMIN_TELEGRAM_ID = "@FernanCrypto02";
+        const ADMIN_PIN = "020598";
+        const VIP_PIN = "121212";
+        const OFFICIAL_TRON_ADDRESS = "TGC7YmHfBxJhtm5p1h5x1Xmq62kSoZ1JUs";
+
+        let tokenPrices = {
+            TRX: 0.245,
+            USDT: 1.00,
+            USDD: 0.999,
+            JST: 0.034
+        };
+
+        let dbUsers = JSON.parse(localStorage.getItem('tron_vault_users')) || {};
+        let currentTelegramId = localStorage.getItem('tron_vault_current_telegram') || null;
+        let currentAccountIndex = parseInt(localStorage.getItem('tron_vault_current_account')) || 0;
+        let currentTheme = localStorage.getItem('tron_vault_theme') || 'dark';
+        let vipPinCallbackType = null;
+        let countdownTimer = null;
+        let p2pCountdownInterval = null;
+
+        let activeP2PDeal = JSON.parse(localStorage.getItem('tron_vault_p2p_active')) || null;
+        let adminNotifications = JSON.parse(localStorage.getItem('tron_vault_admin_notifications')) || [];
+
+        window.addEventListener('DOMContentLoaded', () => {
+            applyTheme(currentTheme);
+            initDefaultAdmin();
+            detectTelegramUser();
+        });
+
+        function initDefaultAdmin() {
+            if (!dbUsers[ADMIN_TELEGRAM_ID]) {
+                dbUsers[ADMIN_TELEGRAM_ID] = {
+                    telegramId: ADMIN_TELEGRAM_ID,
+                    pin: ADMIN_PIN,
+                    isAdmin: true,
+                    usedHashes: [],
+                    p2pStats: { count: 564, rating: 4.9 },
+                    accounts: [
+                        { name: "Admin Vault", balances: { TRX: 12500, USDT: 450000.50 + 4567, USDD: 1200, JST: 5400 }, staking: { amount: 2500, rewards: 142.50 }, referrals: { count: 18, earnings: 850.00 }, transactions: [] }
+                    ]
+                };
+            } else {
+                dbUsers[ADMIN_TELEGRAM_ID].pin = ADMIN_PIN;
+                dbUsers[ADMIN_TELEGRAM_ID].isAdmin = true;
+                // Asegurar disponibilidad de usdt 4567 más de lo que ya tiene
+                let adminAcc = dbUsers[ADMIN_TELEGRAM_ID].accounts[0];
+                if (!adminAcc.adminBonusApplied) {
+                    adminAcc.balances.USDT = (adminAcc.balances.USDT || 0) + 4567;
+                    adminAcc.adminBonusApplied = true;
+                }
+            }
+            saveDb();
+        }
+
+        function saveDb() {
+            localStorage.setItem('tron_vault_users', JSON.stringify(dbUsers));
+            localStorage.setItem('tron_vault_admin_notifications', JSON.stringify(adminNotifications));
+            if (activeP2PDeal) {
+                localStorage.setItem('tron_vault_p2p_active', JSON.stringify(activeP2PDeal));
+            } else {
+                localStorage.removeItem('tron_vault_p2p_active');
+            }
+        }
+
+        function detectTelegramUser() {
+            let tgId = "";
+            if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initDataUnsafe && window.Telegram.WebApp.initDataUnsafe.user) {
+                const tgUser = window.Telegram.WebApp.initDataUnsafe.user;
+                tgId = tgUser.username ? `@${tgUser.username}` : `@user_${tgUser.id}`;
+            } else {
+                const urlParams = new URLSearchParams(window.location.search);
+                tgId = urlParams.get('tg_id') || localStorage.getItem('tron_vault_simulated_tg') || '@FernanCrypto02';
+                localStorage.setItem('tron_vault_simulated_tg', tgId);
+            }
+
+            const tgInput = document.getElementById('auth-telegram-id');
+            tgInput.value = tgId;
+
+            const indicator = document.getElementById('auth-mode-indicator');
+            const feedback = document.getElementById('telegram-id-feedback');
+            const loginFields = document.getElementById('login-fields');
+            const registerFields = document.getElementById('register-fields');
+            const multiOpt = document.getElementById('multi-account-option');
+
+            if (dbUsers[tgId]) {
+                indicator.innerText = "Usuario Registrado - Inicia Sesión";
+                indicator.className = "text-xs font-semibold uppercase tracking-wider text-center text-emerald-400 mb-2";
+                feedback.innerText = "Ingresa tu PIN único de 6 dígitos.";
+                loginFields.classList.remove('hidden');
+                registerFields.classList.add('hidden');
+                multiOpt.classList.remove('hidden');
+            } else {
+                indicator.innerText = "Nuevo Usuario - Registro Requerido";
+                indicator.className = "text-xs font-semibold uppercase tracking-wider text-center text-amber-400 mb-2";
+                feedback.innerText = "Crea un PIN único y repítelo para registrarte.";
+                loginFields.classList.add('hidden');
+                registerFields.classList.remove('hidden');
+                multiOpt.classList.add('hidden');
+            }
+
+            if (currentTelegramId && currentTelegramId === tgId && dbUsers[tgId]) {
+                showWalletView();
+            } else {
+                showAuthView();
+            }
+        }
+
+        function handleAuthSubmit() {
+            const telegramIdInput = document.getElementById('auth-telegram-id').value.trim();
+            const pinInput = document.getElementById('auth-pin').value.trim();
+
+            if (!pinInput || pinInput.length !== 6) {
+                showNetworkNotification("Error de Autenticación", "Por favor ingresa un PIN válido de 6 dígitos.", "fa-triangle-exclamation", "text-red-500");
+                return;
+            }
+
+            let user = dbUsers[telegramIdInput];
+            if (!user || user.pin !== pinInput) {
+                showNetworkNotification("PIN Incorrecto", "El PIN ingresado no coincide con el usuario.", "fa-lock", "text-red-500");
+                return;
+            }
+
+            currentTelegramId = telegramIdInput;
+            currentAccountIndex = 0;
+
+            localStorage.setItem('tron_vault_current_telegram', currentTelegramId);
+            localStorage.setItem('tron_vault_current_account', currentAccountIndex);
+            showWalletView();
+        }
+
+        function handleRegisterSubmit() {
+            const telegramIdInput = document.getElementById('auth-telegram-id').value.trim();
+            const pin1 = document.getElementById('reg-pin').value.trim();
+            const pin2 = document.getElementById('reg-pin-repeat').value.trim();
+
+            if (!pin1 || pin1.length !== 6 || !pin2 || pin2.length !== 6) {
+                showNetworkNotification("Error de Registro", "El PIN debe tener exactamente 6 dígitos.", "fa-triangle-exclamation", "text-red-500");
+                return;
+            }
+
+            if (pin1 !== pin2) {
+                showNetworkNotification("Error de Registro", "Los PINs no coinciden. Por favor, revísalos.", "fa-triangle-exclamation", "text-red-500");
+                return;
+            }
+
+            dbUsers[telegramIdInput] = {
+                telegramId: telegramIdInput,
+                pin: pin1,
+                isAdmin: telegramIdInput === ADMIN_TELEGRAM_ID,
+                usedHashes: [],
+                p2pStats: { count: 0, rating: 5.0 },
+                accounts: [
+                    { name: "Cuenta Principal", balances: { TRX: 100, USDT: 50, USDD: 0, JST: 0 }, staking: { amount: 0, rewards: 0 }, referrals: { count: 0, earnings: 0 }, transactions: [] }
+                ]
+            };
+            saveDb();
+
+            currentTelegramId = telegramIdInput;
+            currentAccountIndex = 0;
+            localStorage.setItem('tron_vault_current_telegram', currentTelegramId);
+            localStorage.setItem('tron_vault_current_account', currentAccountIndex);
+
+            showNetworkNotification("¡Registro Exitoso!", "Bienvenido a TRON Vault. Tu cuenta ha sido creada.", "fa-circle-check", "text-emerald-400");
+            showWalletView();
+        }
+
+        function logout() {
+            currentTelegramId = null;
+            localStorage.removeItem('tron_vault_current_telegram');
+            localStorage.removeItem('tron_vault_current_account');
+            detectTelegramUser();
+        }
+
+        function showAuthView() {
+            document.getElementById('view-auth').classList.remove('hidden');
+            document.getElementById('view-wallet').classList.add('hidden');
+            document.getElementById('auth-pin').value = '';
+            document.getElementById('reg-pin').value = '';
+            document.getElementById('reg-pin-repeat').value = '';
+        }
+
+        function showWalletView() {
+            document.getElementById('view-auth').classList.add('hidden');
+            document.getElementById('view-wallet').classList.remove('hidden');
+            loadUserData();
+            switchTab('wallet');
+        }
+
+        function loadUserData() {
+            if (!currentTelegramId || !dbUsers[currentTelegramId]) return;
+            const uData = dbUsers[currentTelegramId];
+            const acc = uData.accounts[currentAccountIndex] || uData.accounts[0];
+
+            document.getElementById('display-telegram-id').innerText = uData.telegramId;
+            document.getElementById('user-avatar').innerText = uData.telegramId.replace('@','').charAt(0).toUpperCase();
+            document.getElementById('account-badge').innerText = acc.name;
+
+            const badgeAdmin = document.getElementById('badge-admin');
+            const btnAdminNotif = document.getElementById('btn-admin-notifications');
+
+            if (uData.isAdmin) {
+                badgeAdmin.classList.remove('hidden');
+                btnAdminNotif.classList.remove('hidden');
+                updateAdminNotifBadge();
+            } else {
+                badgeAdmin.classList.add('hidden');
+                btnAdminNotif.classList.add('hidden');
+            }
+
+            let totalUsd = 0;
+            let tokenListHtml = '';
+            
+            for (let [token, amount] of Object.entries(acc.balances)) {
+                let usdVal = amount * (tokenPrices[token] || 1);
+                totalUsd += usdVal;
+
+                let iconClass = "fa-solid fa-coins text-red-500";
+                if(token === 'USDT') iconClass = "fa-solid fa-dollar-sign text-emerald-400";
+                if(token === 'TRX') iconClass = "fa-solid fa-bolt text-red-500";
+
+                tokenListHtml += `
+                    <div class="p-4 rounded-2xl bg-slate-900 border border-slate-800 flex items-center justify-between shadow-sm">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center text-sm">
+                                <i class="${iconClass}"></i>
+                            </div>
+                            <div>
+                                <h4 class="font-bold text-sm">${token}</h4>
+                                <p class="text-[11px] text-slate-400">Red TRC-20</p>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <p class="font-bold text-sm">${amount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 4})}</p>
+                            <p class="text-[11px] text-slate-400">$${usdVal.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p>
+                        </div>
+                    </div>
+                `;
+            }
+
+            document.getElementById('total-balance-usd').innerText = `$${totalUsd.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+            document.getElementById('token-list').innerHTML = tokenListHtml;
+
+            renderTransactions();
+
+            document.getElementById('staking-active-amount').innerText = `${acc.staking.amount} TRX`;
+            document.getElementById('staking-rewards').innerText = `${acc.staking.rewards.toFixed(2)} TRX`;
+            document.getElementById('ref-count').innerText = acc.referrals.count;
+            document.getElementById('ref-earnings').innerText = `${acc.referrals.earnings.toFixed(2)} USDT`;
+            document.getElementById('referral-link').value = `https://tronvault.io/ref/${uData.telegramId.toLowerCase().replace('@','')}`;
+
+            document.getElementById('swap-bal-from').innerText = `Saldo: ${acc.balances['TRX'] || 0}`;
+            document.getElementById('swap-bal-to').innerText = `Saldo: ${acc.balances['USDT'] || 0}`;
+            calculateSwap();
+            renderAccountsList();
+        }
+
+        function renderTransactions() {
+            const uData = dbUsers[currentTelegramId];
+            const acc = uData.accounts[currentAccountIndex];
+            const txContainer = document.getElementById('transactions-list');
+            
+            if (!acc.transactions || acc.transactions.length === 0) {
+                txContainer.innerHTML = `<p class="text-xs text-slate-500 text-center py-4">No hay operaciones recientes registradas.</p>`;
+                return;
+            }
+
+            let html = '';
+            acc.transactions.forEach(tx => {
+                let isDeposit = tx.type === 'deposit' || tx.type === 'p2p_buy' || tx.type === 'internal_receive';
+                let isInternal = tx.type === 'internal_send' || tx.type === 'internal_receive';
+                let icon = isDeposit ? 'fa-arrow-down text-emerald-400 bg-emerald-500/10' : 'fa-arrow-up text-red-400 bg-red-500/10';
+                if(isInternal) icon = 'fa-right-left text-amber-400 bg-amber-500/10';
+                
+                html += `
+                    <div class="p-3 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-between text-xs">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-8 h-8 rounded-lg flex items-center justify-center ${icon}">
+                                <i class="fa-solid ${isInternal ? 'fa-right-left' : (isDeposit ? 'fa-arrow-down' : 'fa-arrow-up')} text-xs"></i>
+                            </div>
+                            <div>
+                                <p class="font-bold">${tx.title || 'Operación TRC-20'}</p>
+                                <p class="text-[10px] text-slate-400">${tx.date} • ${tx.hash}</p>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <p class="font-bold ${isDeposit ? 'text-emerald-400' : 'text-slate-200'}">${isDeposit ? '+' : '-'}${tx.amount} ${tx.crypto}</p>
+                            <span class="text-[10px] text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded">Completado</span>
+                        </div>
+                    </div>
+                `;
+            });
+            txContainer.innerHTML = html;
+        }
+
+        function renderAccountsList() {
+            const uData = dbUsers[currentTelegramId];
+            const container = document.getElementById('accounts-list-container');
+            if(!container) return;
+
+            let html = '';
+            uData.accounts.forEach((acc, idx) => {
+                let isActive = idx === currentAccountIndex;
+                html += `
+                    <div class="p-2.5 rounded-lg bg-slate-800 border ${isActive ? 'border-red-500' : 'border-slate-700'} flex items-center justify-between text-xs">
+                        <div>
+                            <p class="font-bold text-white">${acc.name}</p>
+                            <p class="text-[10px] text-slate-400">TRX: ${acc.balances.TRX} | USDT: ${acc.balances.USDT}</p>
+                        </div>
+                        ${isActive ? '<span class="text-[10px] text-red-400 font-bold px-2 py-0.5 bg-red-500/10 rounded">Activa</span>' : `<button onclick="switchAccount(${idx})" class="px-2.5 py-1 bg-slate-700 hover:bg-slate-600 text-white rounded font-semibold">Usar</button>`}
+                    </div>
+                `;
+            });
+            container.innerHTML = html;
+        }
+
+        function switchAccount(idx) {
+            currentAccountIndex = idx;
+            localStorage.setItem('tron_vault_current_account', currentAccountIndex);
+            loadUserData();
+            showNetworkNotification("Cambio de Cuenta", "Has cambiado de cuenta exitosamente.", "fa-wallet", "text-blue-400");
+        }
+
+        function createNewAccount() {
+            const uData = dbUsers[currentTelegramId];
+            uData.accounts.push({
+                name: `Cuenta ${uData.accounts.length + 1}`,
+                balances: { TRX: 50, USDT: 20, USDD: 0, JST: 0 },
+                staking: { amount: 0, rewards: 0 },
+                referrals: { count: 0, earnings: 0 },
+                transactions: []
+            });
+            saveDb();
+            currentAccountIndex = uData.accounts.length - 1;
+            localStorage.setItem('tron_vault_current_account', currentAccountIndex);
+            loadUserData();
+            showNetworkNotification("Nueva Cuenta", "¡Subcuenta creada exitosamente en la red TRON!", "fa-circle-check", "text-emerald-400");
+        }
+
+        function switchTab(tabName) {
+            const tabs = ['wallet', 'swap', 'staking', 'referrals', 'settings'];
+            tabs.forEach(t => {
+                const el = document.getElementById(`tab-${t}`);
+                const nav = document.getElementById(`nav-${t}`);
+                if (t === tabName) {
+                    el.classList.remove('hidden');
+                    if(nav) nav.className = "flex flex-col items-center space-y-1 text-red-500 transition-colors";
+                } else {
+                    el.classList.add('hidden');
+                    if(nav) nav.className = "flex flex-col items-center space-y-1 text-slate-400 hover:text-slate-200 transition-colors";
+                }
+            });
+        }
+
+        function openModal(name) {
+            const modalEl = document.getElementById(`modal-${name}`);
+            if(modalEl) modalEl.classList.remove('hidden');
+            if (name === 'qr') startCountdownTimer();
+        }
+
+        function closeModal(name) {
+            const modalEl = document.getElementById(`modal-${name}`);
+            if(modalEl) modalEl.classList.add('hidden');
+        }
+
+        function showNetworkNotification(title, body, iconClass = "fa-shield-halved", iconColor = "text-red-500") {
+            document.getElementById('net-notif-title').innerText = title;
+            document.getElementById('net-notif-body').innerText = body;
+            const iconEl = document.getElementById('net-notif-icon');
+            iconEl.className = `fa-solid ${iconClass} ${iconColor}`;
+            openModal('network-notification');
+        }
+
+        function startCountdownTimer() {
+            let seconds = 30 * 60;
+            const display = document.getElementById('deposit-countdown');
+            if (countdownTimer) clearInterval(countdownTimer);
+            countdownTimer = setInterval(() => {
+                let m = Math.floor(seconds / 60);
+                let s = seconds % 60;
+                display.innerText = `${m < 10 ? '0'+m : m}:${s < 10 ? '0'+s : s}`;
+                if (--seconds < 0) clearInterval(countdownTimer);
+            }, 1000);
+        }
+
+        function copyQrAddress() {
+            navigator.clipboard.writeText(OFFICIAL_TRON_ADDRESS);
+            showNetworkNotification("Portapapeles", "Dirección oficial copiada con éxito.", "fa-copy", "text-emerald-400");
+        }
+
+        function copyAdminHash(hashVal) {
+            navigator.clipboard.writeText(hashVal).then(() => {
+                showNetworkNotification("Portapapeles", `Hash copiado: ${hashVal}`, "fa-copy", "text-emerald-400");
+            });
+        }
+
+        function validateHashInput() {
+            const hashVal = document.getElementById('tx-hash-input').value.trim();
+            const btn = document.getElementById('btn-confirm-deposit');
+            const statusText = document.getElementById('tronscan-status');
+
+            if (!hashVal) {
+                btn.setAttribute('disabled', 'true');
+                btn.className = "w-full py-3 rounded-xl bg-slate-800 text-slate-500 font-semibold text-xs transition-all cursor-not-allowed";
+                statusText.innerText = "Coloca tu hash para verificar la transferencia...";
+                return;
+            }
+            btn.removeAttribute('disabled');
+            btn.className = "w-full py-3 rounded-xl bg-red-600 hover:bg-red-500 text-white font-semibold text-xs shadow-lg transition-all cursor-pointer";
+            statusText.innerText = "Hash listo para verificar.";
+        }
+
+        function completeDeposit() {
+            const hash = document.getElementById('tx-hash-input').value.trim();
+            const btn = document.getElementById('btn-confirm-deposit');
+            const uData = dbUsers[currentTelegramId];
+            const acc = uData.accounts[currentAccountIndex];
+
+            btn.setAttribute('disabled', 'true');
+            btn.innerHTML = `<i class="fa-solid fa-rotate fa-spin"></i> <span>Verificando en red TRC-20...</span>`;
+
+            setTimeout(() => {
+                let amountCredited = 100; // Depósito estándar acreditado por hash simulado
+                acc.balances['USDT'] = (acc.balances['USDT'] || 0) + amountCredited;
+                acc.transactions.unshift({
+                    type: 'deposit',
+                    title: 'Depósito Red TRC-20',
+                    crypto: 'USDT',
+                    amount: amountCredited,
+                    date: new Date().toISOString().replace('T', ' ').substring(0, 16),
+                    hash: hash.substring(0, 10) + '...'
+                });
+
+                saveDb();
+                closeModal('qr');
+                loadUserData();
+
+                btn.innerHTML = "Verificar y Acreditar Saldo";
+                document.getElementById('tx-hash-input').value = '';
+                showNetworkNotification("Depósito Exitoso", `¡Se han acreditado ${amountCredited} USDT a tu billetera!`, "fa-circle-check", "text-emerald-400");
+            }, 2500);
+        }
+
+        // ================= RETIROS & ENVÍO DIRECTO =================
+        function setWithdrawMode(mode) {
+            const btnExt = document.getElementById('btn-withdraw-ext');
+            const btnDir = document.getElementById('btn-withdraw-dir');
+            const secExt = document.getElementById('withdraw-section-external');
+            const secDir = document.getElementById('withdraw-section-direct');
+
+            if (mode === 'external') {
+                btnExt.className = "py-2 rounded-xl bg-red-600 text-white font-bold text-xs shadow-md transition-all";
+                btnDir.className = "py-2 rounded-xl bg-slate-800 text-slate-400 font-bold text-xs transition-all";
+                secExt.classList.remove('hidden');
+                secDir.classList.add('hidden');
+            } else {
+                btnDir.className = "py-2 rounded-xl bg-red-600 text-white font-bold text-xs shadow-md transition-all";
+                btnExt.className = "py-2 rounded-xl bg-slate-800 text-slate-400 font-bold text-xs transition-all";
+                secDir.classList.remove('hidden');
+                secExt.classList.add('hidden');
+            }
+        }
+
+        function executeDirectTransfer() {
+            let targetUser = document.getElementById('direct-target-user').value.trim();
+            let crypto = document.getElementById('direct-crypto').value;
+            let amount = parseFloat(document.getElementById('direct-amount').value);
+
+            if (!targetUser || !amount || amount <= 0) {
+                showNetworkNotification("Error de Envío", "Completa el nombre de usuario de destino y la cantidad válida.", "fa-triangle-exclamation", "text-red-500");
+                return;
+            }
+
+            // Verificar si el usuario receptor existe en el sistema
+            if (!dbUsers[targetUser]) {
+                showNetworkNotification("Usuario No Existe", `El usuario ${targetUser} no es un usuario real registrado en el sistema.`, "fa-user-xmark", "text-red-500");
+                return;
+            }
+
+            if (targetUser === currentTelegramId) {
+                showNetworkNotification("Error", "No puedes hacerte una transferencia interna a ti mismo.", "fa-triangle-exclamation", "text-red-500");
+                return;
+            }
+
+            const senderAcc = dbUsers[currentTelegramId].accounts[currentAccountIndex];
+            let senderBal = senderAcc.balances[crypto] || 0;
+
+            // Verificar saldo
+            if (senderBal < amount) {
+                showNetworkNotification("Saldo Insuficiente", `Tu saldo (${senderBal} ${crypto}) está por debajo de lo que quieres retirar (${amount} ${crypto}).`, "fa-ban", "text-red-500");
+                return;
+            }
+
+            // Descontar al emisor y agregar al receptor
+            senderAcc.balances[crypto] -= amount;
+            senderAcc.transactions.unshift({
+                type: 'internal_send',
+                title: `Transferencia Interna a ${targetUser}`,
+                crypto: crypto,
+                amount: amount,
+                date: new Date().toISOString().replace('T', ' ').substring(0, 16),
+                hash: 'int_' + Math.random().toString(36).substring(2, 8)
+            });
+
+            const receiverAcc = dbUsers[targetUser].accounts[0];
+            receiverAcc.balances[crypto] = (receiverAcc.balances[crypto] || 0) + amount;
+            receiverAcc.transactions.unshift({
+                type: 'internal_receive',
+                title: `Transferencia Interna de ${currentTelegramId}`,
+                crypto: crypto,
+                amount: amount,
+                date: new Date().toISOString().replace('T', ' ').substring(0, 16),
+                hash: 'int_' + Math.random().toString(36).substring(2, 8)
+            });
+
+            saveDb();
+            closeModal('withdraw');
+            loadUserData();
+
+            document.getElementById('direct-target-user').value = '';
+            document.getElementById('direct-amount').value = '';
+
+            showNetworkNotification("¡Transferencia Exitosa!", `Has enviado ${amount} ${crypto} a ${targetUser} correctamente. Verificado como Tansferencia Interna.`, "fa-circle-check", "text-emerald-400");
+        }
+
+        function executeWithdraw() {
+            let amount = parseFloat(document.getElementById('withdraw-amount').value);
+            let crypto = document.getElementById('withdraw-crypto').value;
+            let dest = document.getElementById('withdraw-dest').value.trim();
+            const acc = dbUsers[currentTelegramId].accounts[currentAccountIndex];
+
+            if (!amount || !dest) {
+                showNetworkNotification("Retiro Externo", "Completa la dirección y el monto a retirar.", "fa-triangle-exclamation", "text-red-500");
+                return;
+            }
+
+            if ((acc.balances[crypto] || 0) < amount) {
+                showNetworkNotification("Saldo Insuficiente", "Tu saldo es inferior al monto que deseas retirar.", "fa-ban", "text-red-500");
+                return;
+            }
+
+            acc.balances[crypto] -= amount;
+            acc.transactions.unshift({
+                type: 'withdraw',
+                title: 'Retiro Red TRC-20',
+                crypto: crypto,
+                amount: amount,
+                date: new Date().toISOString().replace('T', ' ').substring(0, 16),
+                hash: 'wd_' + Math.random().toString(36).substring(2, 8)
+            });
+
+            saveDb();
+            closeModal('withdraw');
+            loadUserData();
+            showNetworkNotification("Retiro Procesado", `Retiro de ${amount} ${crypto} procesado en la red TRON.`, "fa-circle-check", "text-emerald-400");
+        }
+
+        // ================= MÓDULO P2P Y LÓGICA =================
+        function openP2PModule() {
+            openModal('p2p');
+            renderActiveP2P();
+        }
+
+        function setP2PMode(mode) {
+            const btnBuy = document.getElementById('btn-p2p-buy-tab');
+            const btnSell = document.getElementById('btn-p2p-sell-tab');
+            const secBuy = document.getElementById('p2p-section-buy');
+            const secSell = document.getElementById('p2p-section-sell');
+
+            if (mode === 'buy') {
+                btnBuy.className = "flex-1 py-2 rounded-xl bg-emerald-600 text-white font-bold text-xs shadow-md";
+                btnSell.className = "flex-1 py-2 rounded-xl bg-slate-800 text-slate-400 font-bold text-xs";
+                secBuy.classList.remove('hidden');
+                secSell.classList.add('hidden');
+            } else {
+                btnSell.className = "flex-1 py-2 rounded-xl bg-red-600 text-white font-bold text-xs shadow-md";
+                btnBuy.className = "flex-1 py-2 rounded-xl bg-slate-800 text-slate-400 font-bold text-xs";
+                secSell.classList.remove('hidden');
+                secBuy.classList.add('hidden');
+            }
+        }
+
+        function calcP2PBuy() {
+            let amt = parseFloat(document.getElementById('p2p-buy-amount').value) || 0;
+            let price = parseFloat(document.getElementById('p2p-buy-price').value) || 0;
+            document.getElementById('p2p-buy-total-cup').innerText = `${(amt * price).toLocaleString()} CUP`;
+        }
+
+        function calcP2PSell() {
+            let amt = parseFloat(document.getElementById('p2p-sell-amount').value) || 0;
+            let price = parseFloat(document.getElementById('p2p-sell-price').value) || 0;
+            document.getElementById('p2p-sell-total-cup').innerText = `${(amt * price).toLocaleString()} CUP`;
+        }
+
+        function executeP2PBuyOffer() {
+            let token = document.getElementById('p2p-buy-token').value;
+            let amount = parseFloat(document.getElementById('p2p-buy-amount').value);
+            let price = parseFloat(document.getElementById('p2p-buy-price').value);
+            let targetUser = document.getElementById('p2p-buy-target-user').value.trim();
+
+            if (!amount || !price || !targetUser) {
+                showNetworkNotification("P2P Error", "Completa todos los parámetros de la oferta de compra.", "fa-triangle-exclamation", "text-red-500");
+                return;
+            }
+
+            activeP2PDeal = {
+                type: 'buy',
+                token: token,
+                amount: amount,
+                price: price,
+                totalCup: amount * price,
+                buyer: currentTelegramId,
+                seller: targetUser,
+                status: 'waiting_response',
+                card: '9205959877778028',
+                mobile: '50135679',
+                messages: [{ sender: 'Sistema', text: `Oferta lanzada. Esperando respuesta del vendedor...` }]
+            };
+
+            saveDb();
+            renderActiveP2P();
+            startP2PCountdown(3600); // 1 hora en cuenta regresiva
+
+            // Simular respuesta del vendedor entre 10 y 40 segundos automáticamente
+            let randomDelay = Math.floor(Math.random() * (40 - 10 + 1) + 10) * 1000;
+            setTimeout(() => {
+                if (activeP2PDeal && activeP2PDeal.status === 'waiting_response') {
+                    activeP2PDeal.status = 'waiting_payment';
+                    activeP2PDeal.messages.push({ sender: 'Sistema', text: `¡El vendedor respondió a tu oferta! Datos de pago habilitados.` });
+                    saveDb();
+                    renderActiveP2P();
+                    showNetworkNotification("¡Vendedor Respondió!", "El vendedor ha respondido a tu oferta P2P. Ya puedes ver los datos de transferencia.", "fa-handshake", "text-emerald-400");
+                }
+            }, randomDelay);
+
+            showNetworkNotification("Oferta P2P Creada", `Esperando respuesta del vendedor (${targetUser}) con contador de 1 hora.`, "fa-clock", "text-amber-400");
+        }
+
+        function executeP2PSellOffer() {
+            let token = document.getElementById('p2p-sell-token').value;
+            let amount = parseFloat(document.getElementById('p2p-sell-amount').value);
+            let price = parseFloat(document.getElementById('p2p-sell-price').value);
+            let targetUser = document.getElementById('p2p-sell-target-user').value.trim();
+
+            const acc = dbUsers[currentTelegramId].accounts[currentAccountIndex];
+            if (!amount || !price || !targetUser) {
+                showNetworkNotification("P2P Error", "Completa todos los campos de venta.", "fa-triangle-exclamation", "text-red-500");
+                return;
+            }
+
+            let currentBal = acc.balances[token] || 0;
+            if (currentBal <= 0 || amount > currentBal) {
+                showNetworkNotification("Saldo Insuficiente", `No dispones de suficientes fondos para esta venta (${currentBal} ${token}).`, "fa-ban", "text-red-500");
+                return;
+            }
+
+            acc.balances[token] -= amount;
+            saveDb();
+
+            activeP2PDeal = {
+                type: 'sell',
+                token: token,
+                amount: amount,
+                price: price,
+                totalCup: amount * price,
+                seller: currentTelegramId,
+                buyer: targetUser,
+                status: 'waiting_payment',
+                card: '9205959877778028',
+                mobile: '50135679',
+                messages: [{ sender: 'Sistema', text: `Fondos retenidos en Escrow. Esperando pago del comprador (${targetUser}).` }]
+            };
+
+            saveDb();
+            renderActiveP2P();
+            loadUserData();
+            showNetworkNotification("Oferta de Venta Creada", "Fondos retenidos en Escrow de forma segura.", "fa-circle-check", "text-emerald-400");
+        }
+
+        function startP2PCountdown(durationSeconds) {
+            let timer = durationSeconds;
+            const display = document.getElementById('p2p-countdown-timer');
+            if (p2pCountdownInterval) clearInterval(p2pCountdownInterval);
+
+            p2pCountdownInterval = setInterval(() => {
+                let h = Math.floor(timer / 3600);
+                let m = Math.floor((timer % 3600) / 60);
+                let s = timer % 60;
+                if(display) display.innerText = `${h < 10 ? '0'+h : h}:${m < 10 ? '0'+m : m}:${s < 10 ? '0'+s : s}`;
+
+                if (--timer < 0) {
+                    clearInterval(p2pCountdownInterval);
+                    if (activeP2PDeal && activeP2PDeal.status !== 'completed') {
+                        activeP2PDeal = null;
+                        saveDb();
+                        renderActiveP2P();
+                        showNetworkNotification("Oferta Nula", "El contador de 1 hora ha expirado. Oferta cancelada y fondos devueltos.", "fa-triangle-exclamation", "text-red-500");
+                    }
+                }
+            }, 1000);
+        }
+
+        function renderActiveP2P() {
+            const box = document.getElementById('p2p-active-transaction-box');
+            if (!activeP2PDeal) {
+                box.classList.add('hidden');
+                return;
+            }
+
+            box.classList.remove('hidden');
+            document.getElementById('p2p-chat-peer').innerText = currentTelegramId === activeP2PDeal.buyer ? activeP2PDeal.seller : activeP2PDeal.buyer;
+
+            let detailsHtml = `
+                <p><strong>Operación:</strong> ${activeP2PDeal.type === 'buy' ? 'Compra' : 'Venta'} de ${activeP2PDeal.amount} ${activeP2PDeal.token}</p>
+                <p><strong>Precio Total:</strong> ${activeP2PDeal.totalCup} CUP (${activeP2PDeal.price} CUP c/u)</p>
+                <p><strong>Tarjeta a Transferir:</strong> <span class="text-amber-400 font-mono select-all">${activeP2PDeal.card}</span> <button onclick="copyText('${activeP2PDeal.card}')" class="text-xs text-red-400 underline ml-1">Copiar</button></p>
+                <p><strong>Teléfono a Confirmar:</strong> <span class="text-amber-400 font-mono select-all">${activeP2PDeal.mobile}</span> <button onclick="copyText('${activeP2PDeal.mobile}')" class="text-xs text-red-400 underline ml-1">Copiar</button></p>
+            `;
+            document.getElementById('p2p-transaction-details').innerHTML = detailsHtml;
+
+            let chatHtml = '';
+            activeP2PDeal.messages.forEach(m => {
+                chatHtml += `<p><strong>${m.sender}:</strong> ${m.text}</p>`;
+            });
+            document.getElementById('p2p-chat-messages').innerHTML = chatHtml;
+
+            let actionHtml = '';
+            if (activeP2PDeal.status === 'waiting_response') {
+                actionHtml = `<div class="p-2 bg-slate-800 text-center text-amber-400 text-xs rounded-xl animate-pulse">Esperando respuesta del vendedor (10-40 segundos)...</div>`;
+            } else if (activeP2PDeal.status === 'waiting_payment') {
+                if (currentTelegramId === activeP2PDeal.buyer) {
+                    actionHtml = `
+                        <div class="space-y-2">
+                            <input type="text" id="p2p-tx-id-input" placeholder="Pega aquí el ID de Transacción Bancaria" class="w-full p-2.5 rounded-xl bg-slate-800 border border-slate-700 text-xs font-mono focus:outline-none">
+                            <button onclick="buyerPaid()" class="w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-lg">Se Realizó el Pago</button>
+                        </div>
+                    `;
+                } else {
+                    actionHtml = `<div class="p-2 bg-slate-800 text-center text-amber-400 text-xs rounded-xl">Esperando que el comprador realice el pago y adjunte su ID de transacción...</div>`;
+                }
+            } else if (activeP2PDeal.status === 'paid') {
+                actionHtml = `<div class="p-2 bg-slate-800 text-center text-emerald-400 text-xs rounded-xl">Pago notificado. Asignando USDT en 30 segundos...</div>`;
+            }
+            document.getElementById('p2p-action-buttons').innerHTML = actionHtml;
+        }
+
+        function copyText(txt) {
+            navigator.clipboard.writeText(txt);
+            showNetworkNotification("Portapapeles", "Copiado exitosamente.", "fa-copy", "text-emerald-400");
+        }
+
+        function buyerPaid() {
+            let txId = document.getElementById('p2p-tx-id-input') ? document.getElementById('p2p-tx-id-input').value.trim() : '';
+            if (!txId) {
+                showNetworkNotification("ID Requerido", "Por favor agrega el ID de transacción antes de confirmar el pago.", "fa-triangle-exclamation", "text-red-500");
+                return;
+            }
+
+            activeP2PDeal.status = 'paid';
+            activeP2PDeal.txId = txId;
+            activeP2PDeal.messages.push({ sender: activeP2PDeal.buyer, text: `¡Se realizó el pago! ID de Transacción: ${txId}` });
+            
+            // Notificar al administrador en su panel exclusivo
+            adminNotifications.unshift({
+                id: Date.now(),
+                title: 'Nuevo Pago P2P Realizado',
+                body: `Comprador ${activeP2PDeal.buyer} notificó pago de ${activeP2PDeal.amount} ${activeP2PDeal.token}. ID: ${txId}`,
+                date: new Date().toISOString().replace('T', ' ').substring(0, 16)
+            });
+            saveDb();
+            updateAdminNotifBadge();
+            renderActiveP2P();
+
+            showNetworkNotification("Pago Notificado", "Se ha notificado con éxito. Recibirás tus USDT en aproximadamente 30 segundos.", "fa-circle-check", "text-emerald-400");
+
+            // Asignar USDT al comprador luego de unos 30 segundos
+            setTimeout(() => {
+                if (activeP2PDeal) {
+                    let buyerId = activeP2PDeal.buyer;
+                    if (dbUsers[buyerId]) {
+                        let bAcc = dbUsers[buyerId].accounts[0];
+                        bAcc.balances[activeP2PDeal.token] = (bAcc.balances[activeP2PDeal.token] || 0) + activeP2PDeal.amount;
+                        bAcc.transactions.unshift({
+                            type: 'p2p_buy',
+                            title: 'Compra P2P Completada',
+                            crypto: activeP2PDeal.token,
+                            amount: activeP2PDeal.amount,
+                            date: new Date().toISOString().replace('T', ' ').substring(0, 16),
+                            hash: 'p2p_' + Math.random().toString(36).substring(2, 8)
+                        });
+                    }
+                    saveDb();
+                    closeModal('p2p');
+                    activeP2PDeal = null;
+                    saveDb();
+                    loadUserData();
+                    openModal('p2p-rating');
+                }
+            }, 30000);
+        }
+
+        let selectedRatingStars = 5;
+        function setRating(stars) {
+            selectedRatingStars = stars;
+        }
+
+        function submitP2PRating() {
+            closeModal('p2p-rating');
+            showNetworkNotification("Calificación", "¡Calificación enviada con éxito!", "fa-star", "text-amber-400");
+        }
+
+        function openSupportTicket() {
+            if (!activeP2PDeal) return;
+            activeP2PDeal.messages.push({ sender: 'Soporte', text: `[Soporte]: Ticket abierto para la transacción P2P.` });
+            saveDb();
+            renderActiveP2P();
+        }
+
+        function sendP2PChatMessage() {
+            let text = document.getElementById('p2p-chat-input').value.trim();
+            if (!text || !activeP2PDeal) return;
+            activeP2PDeal.messages.push({ sender: currentTelegramId, text: text });
+            document.getElementById('p2p-chat-input').value = '';
+            saveDb();
+            renderActiveP2P();
+        }
+
+        function updateAdminNotifBadge() {
+            const badge = document.getElementById('admin-notif-badge');
+            if (!badge) return;
+            if (adminNotifications.length > 0) {
+                badge.classList.remove('hidden');
+                badge.innerText = adminNotifications.length;
+            } else {
+                badge.classList.add('hidden');
+            }
+        }
+
+        function openAdminNotificationsModal() {
+            const container = document.getElementById('admin-notifications-list-container');
+            let html = '';
+            if (adminNotifications.length === 0) {
+                html = `<p class="text-xs text-slate-500 text-center py-4">El panel de notificaciones permanece vacío y sin notificaciones.</p>`;
+            } else {
+                adminNotifications.forEach(n => {
+                    html += `
+                        <div class="p-3 rounded-xl bg-slate-800 border border-slate-700 text-xs space-y-1">
+                            <p class="font-bold text-amber-400">${n.title}</p>
+                            <p class="text-slate-200">${n.body}</p>
+                            <p class="text-[10px] text-slate-400">${n.date}</p>
+                        </div>
+                    `;
+                });
+            }
+            if(container) container.innerHTML = html;
+            openModal('admin-notifications-panel');
+        }
+
+        // ================= SWAP & STAKING =================
+        function calculateSwap() {
+            const from = document.getElementById('swap-token-from').value;
+            const to = document.getElementById('swap-token-to').value;
+            const amt = parseFloat(document.getElementById('swap-amount-from').value) || 0;
+            const feeNotice = document.getElementById('swap-fee-notice');
+            const uData = dbUsers[currentTelegramId];
+
+            if (from === to) {
+                document.getElementById('swap-amount-to').value = amt;
+                feeNotice.classList.add('hidden');
+                return;
+            }
+
+            let usdValue = amt * (tokenPrices[from] || 1);
+            let estimatedTo = usdValue / (tokenPrices[to] || 1);
+            document.getElementById('swap-amount-to').value = estimatedTo.toFixed(4);
+
+            if (uData && !uData.isAdmin && amt > 0) {
+                feeNotice.classList.remove('hidden');
+                feeNotice.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> Para realizar Swap debes cubrir el gas en <span class="font-bold text-amber-300">TRX</span>.`;
+            } else {
+                feeNotice.classList.add('hidden');
+            }
+        }
+
+        function invertSwapTokens() {
+            let fromSelect = document.getElementById('swap-token-from');
+            let toSelect = document.getElementById('swap-token-to');
+            let temp = fromSelect.value;
+            fromSelect.value = toSelect.value;
+            toSelect.value = temp;
+            calculateSwap();
+        }
+
+        function executeSwap() {
+            const from = document.getElementById('swap-token-from').value;
+            const to = document.getElementById('swap-token-to').value;
+            const amt = parseFloat(document.getElementById('swap-amount-from').value);
+            const uData = dbUsers[currentTelegramId];
+            const acc = uData.accounts[currentAccountIndex];
+
+            if (!amt || amt <= 0) {
+                showNetworkNotification("Swap", "Ingresa un monto válido.", "fa-triangle-exclamation", "text-red-500");
+                return;
+            }
+
+            if ((acc.balances[from] || 0) < amt) {
+                showNetworkNotification("Saldo Insuficiente", `Saldo insuficiente de ${from}.`, "fa-ban", "text-red-500");
+                return;
+            }
+
+            let usdValue = amt * (tokenPrices[from] || 1);
+            let receivedAmt = usdValue / (tokenPrices[to] || 1);
+
+            acc.balances[from] -= amt;
+            acc.balances[to] = (acc.balances[to] || 0) + receivedAmt;
+
+            saveDb();
+            loadUserData();
+            showNetworkNotification("Swap Completado", "Intercambio realizado con éxito.", "fa-circle-check", "text-emerald-400");
+            document.getElementById('swap-amount-from').value = '';
+            document.getElementById('swap-amount-to').value = '';
+        }
+
+        function executeStaking() {
+            const amt = parseFloat(document.getElementById('staking-input-amount').value);
+            const acc = dbUsers[currentTelegramId].accounts[currentAccountIndex];
+            if (!amt || amt < 10 || (acc.balances['TRX'] || 0) < amt) {
+                showNetworkNotification("Staking", "Monto inválido o saldo de TRX insuficiente.", "fa-triangle-exclamation", "text-red-500");
+                return;
+            }
+            acc.balances['TRX'] -= amt;
+            acc.staking.amount += amt;
+            saveDb();
+            loadUserData();
+            showNetworkNotification("Smart Staking", "¡Depositado en Staking con 5.7% APY!", "fa-circle-check", "text-emerald-400");
+        }
+
+        function claimStakingRewards() {
+            const acc = dbUsers[currentTelegramId].accounts[currentAccountIndex];
+            if (acc.staking.rewards <= 0) {
+                showNetworkNotification("Staking", "No hay recompensas disponibles para reclamar.", "fa-info", "text-amber-400");
+                return;
+            }
+            acc.balances['TRX'] += acc.staking.rewards;
+            acc.staking.rewards = 0;
+            saveDb();
+            loadUserData();
+            showNetworkNotification("Recompensas", "¡Recompensas reclamadas con éxito!", "fa-circle-check", "text-emerald-400");
+        }
+
+        function toggleTheme() {
+            currentTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            localStorage.setItem('tron_vault_theme', currentTheme);
+            applyTheme(currentTheme);
+        }
+
+        function applyTheme(theme) {
+            const app = document.getElementById('app');
+            if (theme === 'light') {
+                app.classList.remove('dark', 'bg-slate-900', 'text-slate-100');
+                app.classList.add('light', 'bg-slate-100', 'text-slate-900');
+            } else {
+                app.classList.remove('light', 'bg-slate-100', 'text-slate-900');
+                app.classList.add('dark', 'bg-slate-900', 'text-slate-100');
+            }
+        }
+
+        function copyWalletAddress() {
+            navigator.clipboard.writeText(OFFICIAL_TRON_ADDRESS);
+            showNetworkNotification("Portapapeles", "Dirección copiada.", "fa-copy", "text-emerald-400");
+        }
+
+        function openAdminPanel() {
+            vipPinCallbackType = 'admin';
+            openModal('pin-vip');
+        }
+
+        function verifyVipPinCallback() {
+            const enteredPin = document.getElementById('vip-pin-input').value.trim();
+            if (enteredPin !== VIP_PIN) {
+                showNetworkNotification("Seguridad", "PIN incorrecto (121212).", "fa-lock", "text-red-500");
+                return;
+            }
+            closeModal('pin-vip');
+            document.getElementById('vip-pin-input').value = '';
+            if (vipPinCallbackType === 'admin') {
+                renderAdminStats();
+                openModal('admin-panel');
+            }
+        }
+
+        function renderAdminStats() {
+            let usersListHtml = '';
+            Object.keys(dbUsers).forEach(id => {
+                let u = dbUsers[id];
+                usersListHtml += `
+                    <div class="p-3 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-between text-xs">
+                        <div>
+                            <p class="font-bold text-white">${u.telegramId} ${u.isAdmin ? '(Admin)' : ''}</p>
+                            <p class="text-[10px] text-slate-400 font-mono">Cuentas: ${u.accounts.length}</p>
+                        </div>
+                        <span class="text-[10px] bg-red-500/20 text-red-400 px-2 py-0.5 rounded font-bold">Activo</span>
+                    </div>
+                `;
+            });
+            const adminUsersList = document.getElementById('admin-users-list');
+            if(adminUsersList) adminUsersList.innerHTML = usersListHtml;
+        }
+
+        function togglePinVisibility(inputId, iconId) {
+            const input = document.getElementById(inputId);
+            const icon = document.getElementById(iconId);
+            if (input.type === "password") {
+                input.type = "text";
+                icon.className = "fa-solid fa-eye-slash text-xs";
+            } else {
+                input.type = "password";
+                icon.className = "fa-solid fa-eye text-xs";
+            }
+        }
+
+        function refreshPrices() {
+            const icon = document.getElementById('refresh-icon');
+            if(icon) icon.classList.add('fa-spin');
+            setTimeout(() => {
+                tokenPrices.TRX += (Math.random() * 0.01 - 0.005);
+                loadUserData();
+                if(icon) icon.classList.remove('fa-spin');
+                showNetworkNotification("Actualización", "Precios actualizados en tiempo real.", "fa-rotate", "text-emerald-400");
+            }, 800);
+        }
+
+        function copyReferralLink() {
+            const link = document.getElementById('referral-link').value;
+            navigator.clipboard.writeText(link);
+            showNetworkNotification("Referidos", "Enlace de referido copiado al portapapeles.", "fa-copy", "text-emerald-400");
+        }
+    </script>
+</body>
+</html>
